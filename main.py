@@ -1,40 +1,52 @@
 import os
-import requests 
+import asyncio
+import aiohttp
+import platform  
 from colorama import Fore, init 
 
 init(convert=True)
 
-class WebhookClient:
+class Client: 
     def __init__(self, url: str):
       self.url = url 
       self.headers = {
         'Content-Type': 'application/json'
       }
 
-    def send(self, content: str):
+    async def send(self, content: str):
+      """send the webhook message"""
       data = {
         'content': content
       }
-      r = requests.post(
-        self.url, 
-        headers=self.headers,
-        json=data 
-      )
-      if r.status_code == 404: 
-        print(f"{Fore.RED}Webhook not found... closing{Fore.RESET}") 
-        exit()
-      if r.status_code == 429: 
-        print(f"{Fore.RED}You are rate limited!!{Fore.RESET}")
-      elif r.status_code == 204: 
-        print(f"{Fore.GREEN}Message sent!{Fore.RESET}")
 
-def main():
-   url = input("webhook url: ") 
-   client = WebhookClient(url)
-   os.system("cls")
-   while True: 
-     message = input("message: ") 
-     client.send(message)
-     os.system('cls')
+      async with aiohttp.ClientSession(headers=self.headers) as session: 
+        async with session.post(self.url, json=data) as r:     
+          if r.status == 404: 
+            print(f"{Fore.RED}[404] Webhook not found. Exiting..{Fore.RESET}")
+            exit()
+          
+          elif r.status != 204: 
+            print(f"{Fore.RED}[{r.status}] Failed to send the webhook{Fore.RESET}")      
+    
+    def clear(self):
+      """clear the terminal"""
+      if platform.uname().system == "Linux":
+        os.system("clear")
+      
+      elif platform.uname().system == "Windows":
+        os.system("cls")  
+        
+    async def start(self):
+      """start the client"""  
+      while True: 
+        self.clear()
+        content: str = input("Your message: ")
+        await self.send(content)
 
-main()
+async def main():
+  url: str = input("Webhook url: ")
+  client = Client(url)
+  await client.start()
+
+if __name__ == "__main__":
+   asyncio.run(main())
